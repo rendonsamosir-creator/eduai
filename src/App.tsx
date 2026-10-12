@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type FormEvent, type ReactNode } from "react";
 
 type Role = "Siswa" | "Pengawas" | "Penyelenggara Ujian" | "Admin" | "Pihak Sekolah";
 type CreatedExam = { name: string; description: string; date: string; start: string; duration: string; supervisor: string; status: string; students: string[] };
@@ -91,11 +91,11 @@ function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-function Logo({ compact = false }: { compact?: boolean }) {
+function Logo({ compact = false, dark = false }: { compact?: boolean; dark?: boolean }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="grid size-10 place-items-center rounded-md bg-blue-700 text-white"><Icon name="shield" size={22} /></div>
-      {!compact && <div><div className="text-xl font-bold tracking-tight text-slate-900">Edu<span className="text-blue-700">AI</span></div><div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Pengawasan Ujian</div></div>}
+    <div className="flex items-center gap-2.5">
+      <div className="relative grid size-9 place-items-center rounded-lg bg-blue-700 text-[17px] font-semibold text-white">E<span className={`absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-amber-400 ring-2 ${dark ? "ring-[#16213a]" : "ring-white"}`} /></div>
+      {!compact && <div className="leading-tight"><div className={`text-lg font-semibold tracking-tight ${dark ? "text-white" : "text-slate-900"}`}>EduAI</div><div className={`text-[11px] ${dark ? "text-slate-400" : "text-slate-500"}`}>Pengawasan Ujian</div></div>}
     </div>
   );
 }
@@ -140,37 +140,99 @@ const indications = [
   { name: "Citra Lestari", type: "Perangkat lain terlihat", time: "09.31.22", confidence: "Rendah" },
 ];
 
+type Account = { email: string; name: string; password: string; role: Role };
+const PREFIX_ROLE: Record<string, Role> = { siswa: "Siswa", pengawas: "Pengawas", penyelenggara: "Penyelenggara Ujian", admin: "Admin", sekolah: "Pihak Sekolah" };
+const roleFromEmail = (email: string): Role | undefined => PREFIX_ROLE[email.toLowerCase().match(/^([a-z]+)\d*@[^\s@]+\.[^\s@]+$/)?.[1] ?? ""];
+function loadAccounts(): Account[] {
+  try { const raw = localStorage.getItem("eduai_accounts"); if (raw) return JSON.parse(raw); } catch { /* pakai akun awal */ }
+  const seed: Account[] = [
+    { email: "siswa1@gmail.com", name: "Alya Putri", password: "123456", role: "Siswa" },
+    { email: "pengawas1@gmail.com", name: "Rina Setiawati", password: "123456", role: "Pengawas" },
+    { email: "penyelenggara1@gmail.com", name: "Dedi Kurniawan", password: "123456", role: "Penyelenggara Ujian" },
+    { email: "admin1@gmail.com", name: "Nadia Aulia", password: "123456", role: "Admin" },
+    { email: "sekolah1@gmail.com", name: "Maya Sari", password: "123456", role: "Pihak Sekolah" },
+  ];
+  try { localStorage.setItem("eduai_accounts", JSON.stringify(seed)); } catch { /* abaikan */ }
+  return seed;
+}
+
 function Login({ go }: { go: (s: Screen) => void }) {
-  const { role, setRole } = useRole();
+  const { setRole } = useRole();
+  const [register, setRegister] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
   const [error, setError] = useState("");
-  const roles: Role[] = ["Siswa", "Pengawas", "Penyelenggara Ujian", "Admin", "Pihak Sekolah"];
+  const field = "h-11 w-full rounded-md border border-slate-300 bg-white px-3.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-600 focus:ring-4 focus:ring-blue-100";
+  const tiles = [["Alya P.", "bg-blue-100"], ["Bima P.", "bg-slate-200"], ["Citra L.", "bg-amber-100", true], ["Dimas S.", "bg-slate-200"], ["Farah N.", "bg-blue-100"], ["Gilang R.", "bg-slate-200"]] as [string, string, boolean?][];
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const mail = email.trim().toLowerCase();
+    const accounts = loadAccounts();
+    if (register) {
+      const role = roleFromEmail(mail);
+      if (!role) return setError("Email harus diawali siswa, pengawas, penyelenggara, admin, atau sekolah. Contoh: pengawas2@gmail.com");
+      if (password.length < 6) return setError("Kata sandi minimal 6 karakter.");
+      if (accounts.some((a) => a.email === mail)) return setError("Email ini sudah terdaftar.");
+      try { localStorage.setItem("eduai_accounts", JSON.stringify([...accounts, { email: mail, name: name.trim() || mail.split("@")[0], password, role }])); } catch { /* abaikan */ }
+      setRole(role); go("dashboard"); return;
+    }
+    const acc = accounts.find((a) => a.email === mail && a.password === password);
+    if (!acc) return setError("Email atau kata sandi salah.");
+    setRole(acc.role); go("dashboard");
+  };
+  const switchMode = () => { setRegister(!register); setError(""); };
+
   return (
-    <main className="grid min-h-screen bg-slate-50 lg:grid-cols-[1.05fr_.95fr]">
-      <section className="hidden overflow-hidden bg-blue-700 p-16 text-white lg:flex lg:flex-col lg:justify-between">
+    <main className="grid min-h-screen bg-white lg:grid-cols-[1.1fr_.9fr]">
+      <section className="hidden flex-col justify-between border-r border-slate-200 bg-slate-50 p-14 lg:flex">
         <Logo />
-        <div className="relative z-10 max-w-xl">
-          <div className="mb-8 grid size-16 place-items-center rounded-md bg-white/10 ring-1 ring-white/20"><Icon name="bell" size={30} /></div>
-          <h1 className="text-4xl font-semibold leading-tight tracking-tight">Pengawasan ujian yang lebih tenang dan terarah.</h1>
-          <p className="mt-6 max-w-lg text-lg leading-8 text-blue-100">AI membantu memberi Indikasi. Pengawas manusia tetap meninjau bukti dan membuat keputusan akhir.</p>
+        <div>
+          <h1 className="max-w-md text-4xl font-semibold leading-tight text-slate-900">Pengawasan ujian online yang lebih teliti, keputusan tetap di tangan pengawas.</h1>
+          <p className="mt-4 max-w-md text-base leading-7 text-slate-600">EduAI menandai momen yang perlu dicek, lalu pengawas meninjau buktinya dan memutuskan sendiri.</p>
+          <div className="mt-10 w-full max-w-lg rounded-lg border border-slate-200 bg-white p-4">
+            <div className="mb-3 flex items-center justify-between text-xs">
+              <div><p className="font-semibold text-slate-800">Ujian Akhir Matematika XI</p><p className="text-slate-500">XI IPA 2 · 31 dari 32 siswa hadir</p></div>
+              <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">Berlangsung</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {tiles.map(([nama, warna, tandai]) => (
+                <div key={nama} className={`relative aspect-[4/3] overflow-hidden rounded-md ${warna} ${tandai ? "ring-2 ring-amber-500" : ""}`}>
+                  <svg viewBox="0 0 40 40" aria-hidden="true" className="absolute bottom-0 left-1/2 h-4/5 -translate-x-1/2 text-white/70"><circle cx="20" cy="15" r="7" fill="currentColor" /><path d="M6 40c0-9 6-14 14-14s14 5 14 14z" fill="currentColor" /></svg>
+                  <span className="absolute bottom-1.5 left-1.5 rounded bg-slate-900/60 px-1.5 py-0.5 text-[10px] text-white">{nama}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex items-center justify-between rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <span>Citra Lestari · wajah tidak terlihat 12 detik</span>
+              <span className="font-semibold">Tinjau</span>
+            </div>
+          </div>
         </div>
-        <p className="text-sm text-blue-200">Teknologi pendukung untuk proses ujian yang adil.</p>
+        <p className="text-sm text-slate-500">SMA Negeri 8 Bandung</p>
       </section>
-      <section className="flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-md">
-          <div className="mb-12 lg:hidden"><Logo /></div>
-          <Badge tone="blue">Portal SMA Negeri 8 Bandung</Badge>
-          <h2 className="mt-5 text-3xl font-bold tracking-tight text-slate-900">Selamat datang kembali</h2>
-          <p className="mt-2 text-slate-500">Masuk ke ruang kerja sesuai kewenangan Anda.</p>
-          <form className="mt-8 space-y-5" onSubmit={(e) => { e.preventDefault(); const data = new FormData(e.currentTarget); const identity = String(data.get("identity") || ""); const password = String(data.get("password") || ""); if (role === "Siswa" && (identity.trim().toLowerCase() !== "alya putri" || password !== "2301034")) { setError("Nama lengkap atau NIM tidak sesuai."); return; } if (!identity || !password) { setError("Email atau kata sandi belum diisi."); return; } setError(""); go("dashboard"); }}>
-            <Field key={`${role}-identity`} name="identity" label={role === "Siswa" ? "Nama Lengkap" : "Email atau nama pengguna"} placeholder={role === "Siswa" ? "Contoh: Alya Putri" : "nama@sman8bdg.sch.id"} type={role === "Siswa" ? "text" : "email"} value={role === "Siswa" ? "Alya Putri" : "rina@sman8bdg.sch.id"} />
-            <Field key={`${role}-password`} name="password" label={role === "Siswa" ? "Password / NIM" : "Kata sandi"} placeholder={role === "Siswa" ? "Masukkan NIM" : "Masukkan kata sandi"} type="password" value={role === "Siswa" ? "2301034" : "eduaidemo"} />
-            {role === "Siswa" && <div className="flex gap-2 rounded-md bg-blue-50 p-3 text-xs leading-5 text-blue-800"><Icon name="shield" size={16} /><span>Login siswa menggunakan Nama Lengkap dan NIM.</span></div>}
-            <label className="block"><span className="mb-2 block text-sm font-semibold text-slate-700">Masuk sebagai</span><select value={role} onChange={(e) => setRole(e.target.value as Role)} className="h-11 w-full rounded-md border border-slate-200 bg-white px-3.5 text-sm text-slate-800 outline-none focus:border-blue-500"><option>{roles[0]}</option>{roles.slice(1).map((item) => <option key={item}>{item}</option>)}</select><span className="mt-2 block text-xs text-slate-400">Pilihan role tersedia untuk mendemonstrasikan prototype RBAC.</span></label>
-            {error && <div role="alert" className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">{error}</div>}
-            <div className="flex items-center justify-between text-sm"><label className="flex items-center gap-2 text-slate-600"><input type="checkbox" className="size-4 rounded border-slate-300 accent-blue-600" /> Ingat saya</label><button type="button" className="font-semibold text-blue-700">Lupa kata sandi?</button></div>
-            <Button type="submit" className="w-full">Masuk</Button>
+
+      <section className="flex items-center justify-center px-6 py-12 sm:px-12">
+        <div className="w-full max-w-sm">
+          <div className="mb-10 lg:hidden"><Logo /></div>
+          <h2 className="text-2xl font-semibold text-slate-900">{register ? "Buat akun EduAI" : "Masuk ke EduAI"}</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-500">{register ? "Peran ditentukan dari awalan email, misalnya pengawas2@gmail.com." : "Gunakan email yang sudah didaftarkan sekolah."}</p>
+          <form onSubmit={submit} className="mt-8 space-y-4">
+            {register && <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">Nama lengkap</span><input value={name} onChange={(e) => setName(e.target.value)} className={field} placeholder="Nama sesuai data sekolah" /></label>}
+            <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">Email</span><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" className={field} placeholder="pengawas1@gmail.com" /></label>
+            <label className="block"><span className="mb-1.5 block text-sm font-medium text-slate-700">Kata sandi</span>
+              <div className="relative"><input type={show ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete={register ? "new-password" : "current-password"} className={`${field} pr-24`} placeholder="Minimal 6 karakter" />
+                <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-3 text-xs font-medium text-slate-600 hover:text-slate-900">{show ? "Sembunyikan" : "Tampilkan"}</button></div>
+            </label>
+            {error && <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2.5 text-sm leading-5 text-red-700">{error}</p>}
+            <button type="submit" disabled={!email || !password} className="h-11 w-full rounded-md bg-blue-700 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:opacity-40">{register ? "Daftar" : "Masuk"}</button>
+            {!register && <button type="button" onClick={() => alert("Hubungi admin sekolah untuk mengatur ulang kata sandi.")} className="block w-full text-center text-sm text-blue-700 hover:underline">Lupa kata sandi?</button>}
           </form>
-          <p className="mt-8 text-center text-xs leading-5 text-slate-400">Dengan masuk, Anda menyetujui kebijakan privasi dan ketentuan penggunaan EduAI.</p>
+          <div className="my-6 flex items-center gap-4 text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200" />atau<span className="h-px flex-1 bg-slate-200" /></div>
+          <p className="text-center text-sm text-slate-600">{register ? "Sudah punya akun?" : "Belum punya akun?"} <button type="button" onClick={switchMode} className="font-semibold text-blue-700 hover:underline">{register ? "Masuk" : "Daftar"}</button></p>
+          <p className="mt-8 rounded-md bg-slate-50 px-4 py-3 text-xs leading-5 text-slate-500">Akun uji: pengawas1@gmail.com atau admin1@gmail.com, kata sandi 123456.</p>
         </div>
       </section>
     </main>
@@ -222,13 +284,13 @@ function Sidebar({ active, go, open, setOpen }: { active: Screen; go: (s: Screen
   const nav = menus[role];
   return <>
     {open && <button className="fixed inset-0 z-40 bg-slate-900/30 lg:hidden" aria-label="Tutup navigasi" onClick={() => setOpen(false)} />}
-    <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 bg-white p-5 transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
-      <div className="flex items-center justify-between"><Logo /><button className="rounded-md p-2 text-slate-500 hover:bg-slate-100 lg:hidden" onClick={() => setOpen(false)}><Icon name="close" /></button></div>
+    <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-[#16213a] p-5 transition-transform lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+      <div className="flex items-center justify-between"><Logo dark /><button className="rounded-md p-2 text-slate-300 hover:bg-white/10 lg:hidden" onClick={() => setOpen(false)}><Icon name="close" /></button></div>
       <nav className="mt-10 flex-1 space-y-1">
         <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-widest text-slate-400">Ruang kerja</p>
-        {nav.map((item) => <button key={item.id} onClick={() => { go(item.id); setOpen(false); }} className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold transition ${active === item.id || (["create", "exam-detail", "waiting"].includes(active) && item.id === "sessions") || (["detail", "student-detail", "timeline"].includes(active) && item.id === "monitor") ? "bg-blue-50 text-blue-700" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"}`}><Icon name={item.icon} size={19} />{item.label}</button>)}
+        {nav.map((item) => <button key={item.id} onClick={() => { go(item.id); setOpen(false); }} className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold transition ${active === item.id || (["create", "exam-detail", "waiting"].includes(active) && item.id === "sessions") || (["detail", "student-detail", "timeline"].includes(active) && item.id === "monitor") ? "bg-white/10 text-white" : "text-slate-300 hover:bg-white/5 hover:text-white"}`}><Icon name={item.icon} size={19} />{item.label}</button>)}
       </nav>
-      <div className="rounded-md bg-slate-50 p-3.5"><div className="flex items-center gap-3"><div className="grid size-9 place-items-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{role === "Siswa" ? "AP" : role === "Admin" ? "NA" : "RS"}</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-bold text-slate-800">{role === "Siswa" ? "Alya Putri" : role === "Admin" ? "Nadia Aulia" : "Rina Setiawati"}</p><p className="truncate text-[11px] text-slate-500">{role}</p></div><button onClick={() => go("login")} className="text-slate-400 hover:text-slate-700" aria-label="Keluar"><Icon name="arrow" size={16} /></button></div></div>
+      <div className="rounded-lg bg-white/5 p-3.5"><div className="flex items-center gap-3"><div className="grid size-9 place-items-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">{role === "Siswa" ? "AP" : role === "Admin" ? "NA" : "RS"}</div><div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-white">{role === "Siswa" ? "Alya Putri" : role === "Admin" ? "Nadia Aulia" : "Rina Setiawati"}</p><p className="truncate text-[11px] text-slate-400">{role}</p></div><button onClick={() => go("login")} className="text-slate-400 hover:text-white" aria-label="Keluar"><Icon name="arrow" size={16} /></button></div></div>
     </aside>
   </>;
 }
@@ -415,18 +477,49 @@ function MonitorState({ state }: { state: "empty" | "loading" | "offline" }) {
   return <div className="flex flex-1 items-center justify-center p-8 text-center"><div className="max-w-sm"><div className={`mx-auto grid size-14 place-items-center rounded-full ${offline ? "bg-amber-50 text-amber-600" : "bg-slate-100 text-slate-400"}`}><Icon name={offline ? "wifi" : "users"} size={26} /></div><h3 className="mt-4 font-bold text-slate-800">{offline ? "AI belum tersedia" : "Belum ada peserta"}</h3><p className="mt-2 text-sm leading-6 text-slate-500">{offline ? "Pemantauan video tetap berjalan. Indikasi otomatis akan kembali setelah layanan AI tersambung." : "Peserta yang bergabung ke ruang ujian akan tampil di sini."}</p>{offline && <Button variant="secondary" className="mt-5">Coba lagi</Button>}</div></div>;
 }
 
+function Silhouette() {
+  return <svg viewBox="0 0 40 40" aria-hidden="true" className="absolute bottom-0 left-1/2 h-4/5 -translate-x-1/2 text-white/70"><circle cx="20" cy="15" r="7" fill="currentColor" /><path d="M6 40c0-9 6-14 14-14s14 5 14 14z" fill="currentColor" /></svg>;
+}
+
 function Monitoring({ go }: { go: (s: Screen) => void }) {
   const [view, setView] = useState<"active" | "empty" | "loading" | "offline">("active");
+  const [filter, setFilter] = useState("Semua");
+  const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
-  return <AppShell active="monitor" go={go} title="Ujian Akhir Matematika XII"><main className="flex min-h-[calc(100vh-72px)] flex-col">
-    <div className="border-b border-slate-200 bg-white px-4 py-4 sm:px-6"><div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between"><div><h1 className="text-xl font-bold text-slate-900">Pemantauan Langsung</h1><div className="mt-1 flex items-center gap-3 text-xs text-slate-500"><span className="flex items-center gap-1.5"><span className="size-2 rounded-full bg-emerald-500" />31 hadir</span><span>•</span><span>24 Mei 2025, 08.00</span></div></div><div className="flex flex-wrap gap-2"><div className="relative min-w-56 flex-1"><span className="absolute left-3 top-2.5 text-slate-400"><Icon name="search" size={17} /></span><input className="h-10 w-full rounded-md border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-blue-500" placeholder="Cari nama atau NIS" /></div><select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-600"><option>Semua status</option><option>Hadir</option><option>Kamera mati</option></select><select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-600"><option>Indikasi terbanyak</option><option>Nama A–Z</option></select></div></div>
-      <div className="mt-3 flex gap-1 overflow-x-auto rounded-md bg-slate-100 p-1">{[["active","Langsung"],["loading","Memuat"],["empty","Kosong"],["offline","AI belum tersedia"]].map(([id, label]) => <button key={id} onClick={() => setView(id as typeof view)} className={`whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold ${view === id ? "bg-white text-slate-800" : "text-slate-500"}`}>{label}</button>)}</div></div>
-    <div className="flex min-h-0 flex-1 flex-col xl:flex-row">
-      <section className="flex min-h-[560px] flex-1 flex-col bg-slate-50">
-        {view !== "active" ? <MonitorState state={view} /> : <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:p-5">{students.map((s) => <article key={s.name} className="overflow-hidden rounded-md border border-slate-200 bg-white"><div className={`group relative aspect-video ${s.color}`}><div className="absolute inset-0 grid place-items-center"><div className="grid size-16 place-items-center rounded-full bg-white/60 text-lg font-bold text-slate-700">{s.initials}</div></div><div className="absolute left-3 top-3"><Badge tone={s.status === "Hadir" ? "green" : s.status === "Terputus" ? "gray" : "amber"}>{s.status}</Badge></div>{s.count > 0 && <button onClick={() => go("detail")} className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-bold text-white"><Icon name="bell" size={13} />{s.count} • belum ditinjau</button>}</div><div className="p-3"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-slate-900">{s.name}</p><p className="mt-0.5 text-[10px] text-slate-500">NIS 23010{34 + students.indexOf(s)}</p></div><div className="flex gap-1.5 text-slate-500"><span className={s.status === "Mikrofon mati" ? "text-amber-600" : "text-emerald-600"}><Icon name="mic" size={15} /></span><span className={s.status === "Kamera mati" ? "text-amber-600" : "text-emerald-600"}><Icon name="camera" size={15} /></span><span className={s.status === "Terputus" ? "text-amber-600" : "text-emerald-600"}><Icon name="wifi" size={15} /></span></div></div><div className="mt-3 flex gap-2 border-t border-slate-100 pt-3"><Button variant="secondary" className="h-8 flex-1 px-2 text-xs" onClick={() => setExpanded(s.name)}>Perbesar</Button><Button variant="ghost" className="h-8 flex-1 px-2 text-xs" onClick={() => go("student-detail")}>Detail Siswa</Button></div></div></article>)}</div>}
+  const attention = students.filter((s) => s.count > 0).length;
+  const list = students.filter((s) => (filter === "Semua" || (filter === "Perlu perhatian" && s.count > 0) || (filter === "Normal" && s.count === 0 && s.status === "Hadir") || (filter === "Masalah koneksi" && s.status !== "Hadir")) && s.name.toLowerCase().includes(query.toLowerCase()));
+  const stats: [string, string, IconName, string][] = [["Total siswa", "32", "users", "Semua terdaftar"], ["Sedang online", "31", "wifi", "97% terhubung"], ["Perlu perhatian", String(attention), "bell", "2 baru"], ["Indikasi tercatat", "7", "report", "+3 jam ini"]];
+  const ctl = (icon: IconName, off: boolean) => <span className={`grid size-6 place-items-center rounded text-white ${off ? "bg-red-600" : "bg-slate-900/70"}`}><Icon name={icon} size={13} /></span>;
+  const feed: [string, string, string, boolean][] = [...indications.map((i): [string, string, string, boolean] => [i.type, i.name, i.time, true]), ["Koneksi terputus", "Hana Maharani", "09.40.12", false]];
+  return <AppShell active="monitor" go={go} title="Pemantauan Langsung"><main className="p-4 sm:p-8">
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold text-slate-900">Pemantauan siswa</h1><p className="mt-1 text-sm text-slate-500">XI IPA 2 · Matematika · 24 Mei 2025</p></div><div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-2.5"><span className="size-2.5 animate-pulse rounded-full bg-red-500" /><div><p className="text-sm font-semibold text-slate-900">Ujian Akhir Matematika XI</p><p className="text-xs text-slate-500">Berlangsung · sisa 01:18:42</p></div></div></div>
+    <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(([label, value, icon, note]) => <div key={label} className="flex items-center gap-4 rounded-lg border border-slate-200 bg-white p-4"><div className="grid size-11 place-items-center rounded-lg bg-blue-50 text-blue-700"><Icon name={icon} size={21} /></div><div className="min-w-0 flex-1"><p className="text-xs text-slate-500">{label}</p><p className="text-2xl font-semibold leading-8 text-slate-900">{value}</p></div><span className="whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600">{note}</span></div>)}</div>
+    <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <section>
+        <div className="mb-4 flex flex-wrap items-center gap-3"><div className="flex gap-1 overflow-x-auto rounded-lg bg-slate-200/70 p-1">{["Semua", "Normal", "Perlu perhatian", "Masalah koneksi"].map((t) => <button key={t} onClick={() => setFilter(t)} className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ${filter === t ? "bg-white text-slate-900 shadow-sm" : "text-slate-600"}`}>{t}{t === "Perlu perhatian" && <span className="rounded-full bg-amber-100 px-1.5 text-[11px] text-amber-700">{attention}</span>}</button>)}</div>
+          <select aria-label="Tampilan contoh" value={view} onChange={(e) => setView(e.target.value as typeof view)} className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-600"><option value="active">Langsung</option><option value="loading">Memuat</option><option value="empty">Kosong</option><option value="offline">AI belum tersedia</option></select>
+          <div className="relative ml-auto min-w-52 flex-1 sm:max-w-xs"><span className="absolute left-3 top-2.5 text-slate-400"><Icon name="search" size={17} /></span><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari nama siswa" className="h-10 w-full rounded-md border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-blue-500" /></div></div>
+        {view !== "active" ? <div className="flex min-h-[420px] rounded-lg border border-slate-200 bg-white"><MonitorState state={view} /></div> : list.length === 0 ? <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-sm text-slate-500">Tidak ada siswa yang cocok dengan filter ini.</div> : <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">{list.map((s, i) => {
+          const off = s.status === "Kamera mati" || s.status === "Terputus";
+          const flag = indications.find((x) => x.name === s.name)?.type ?? "Perlu ditinjau";
+          return <article key={s.name} className={`overflow-hidden rounded-lg border bg-white ${s.count ? "border-amber-300" : "border-slate-200"}`}>
+            <div className={`relative aspect-video ${off ? "bg-slate-800" : ["bg-blue-100", "bg-slate-200", "bg-blue-50", "bg-slate-300"][i % 4]}`}>
+              {off ? <div className="absolute inset-0 grid place-items-center text-center text-slate-300"><div><Icon name="wifi" size={22} /><p className="mt-1 text-xs">{s.status === "Terputus" ? "Menyambung ulang" : "Kamera dimatikan"}</p></div></div> : <Silhouette />}
+              <span className="absolute left-2 top-2 flex items-center gap-1.5 rounded bg-slate-900/75 px-2 py-0.5 text-[11px] font-medium text-white"><span className="size-1.5 rounded-full bg-red-500" />LIVE</span>
+              <div className="absolute right-2 top-2 flex gap-1">{ctl("mic", s.status === "Mikrofon mati")}{ctl("camera", s.status === "Kamera mati")}{ctl("wifi", s.status === "Terputus")}</div>
+              {s.count > 0 && <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 bg-amber-600/95 px-3 py-1.5 text-xs font-semibold text-white"><Icon name="bell" size={14} />{flag}</div>}
+            </div>
+            <div className="p-3.5"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><p className="truncate text-sm font-semibold text-slate-900">{s.name}</p><p className="text-xs text-slate-400">NIS 23010{34 + students.indexOf(s)}</p></div><Badge tone={s.count ? "amber" : s.status === "Hadir" ? "green" : "gray"}>{s.count ? `${s.count} perlu ditinjau` : s.status === "Hadir" ? "Normal" : s.status}</Badge></div>
+              <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs"><button onClick={() => setExpanded(s.name)} className="font-semibold text-slate-600 hover:text-slate-900">Perbesar</button><button onClick={() => go("student-detail")} className="flex items-center gap-1 font-semibold text-blue-700">Buka pemantauan <Icon name="chevron" size={14} /></button></div></div>
+          </article>;
+        })}</div>}
       </section>
-      <aside className="w-full border-l border-slate-200 bg-white xl:w-96"><div className="flex items-center justify-between border-b border-slate-100 p-5"><div><h2 className="font-bold text-slate-900">Indikasi</h2><p className="mt-0.5 text-xs text-slate-500">Terbaru secara langsung</p></div><Badge tone="amber">7 belum ditinjau</Badge></div><div className="space-y-3 p-4">{view === "offline" ? <div className="rounded-md bg-amber-50 p-5 text-center"><p className="text-sm font-bold text-amber-800">AI belum tersedia</p><p className="mt-1 text-xs leading-5 text-amber-700">Daftar Indikasi akan diperbarui saat layanan kembali.</p></div> : indications.map((item) => <button key={item.time} onClick={() => go("detail")} className="w-full rounded-md border border-slate-200 p-4 text-left transition hover:border-blue-200 "><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-slate-800">{item.name}</p><p className="mt-1 text-xs font-semibold text-amber-700">{item.type}</p></div><span className="whitespace-nowrap text-[10px] text-slate-400">{item.time}</span></div><div className="mt-3 flex items-center justify-between"><span className="text-[11px] text-slate-500">Keyakinan {item.confidence.toLowerCase()}</span><Badge tone="amber">Belum ditinjau</Badge></div></button>)}</div></aside>
-    </div>{expanded && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 p-6"><section role="dialog" aria-modal="true" className="w-full max-w-5xl overflow-hidden rounded-md border border-slate-700 bg-slate-900"><div className="flex items-center justify-between border-b border-white/10 p-4 text-white"><div><p className="font-bold">{expanded}</p><p className="text-xs text-slate-400">Siaran langsung • Koneksi baik</p></div><button onClick={() => setExpanded(null)}><Icon name="close" /></button></div><div className="grid aspect-video place-items-center"><div className="grid size-28 place-items-center rounded-full bg-white/10 text-3xl font-bold text-white">{students.find((item) => item.name === expanded)?.initials}</div></div><div className="flex justify-end gap-2 border-t border-white/10 p-4"><Button variant="secondary" onClick={() => { setExpanded(null); go("student-detail"); }}>Detail Siswa</Button><Button onClick={() => setExpanded(null)}>Tutup</Button></div></section></div>}
+      <aside className="h-fit rounded-lg border border-slate-200 bg-white"><div className="flex items-center justify-between border-b border-slate-100 p-4"><div><h2 className="font-semibold text-slate-900">Aktivitas terbaru</h2><p className="text-xs text-slate-500">Diperbarui langsung</p></div><button onClick={() => go("indications")} className="text-xs font-semibold text-blue-700">Lihat semua</button></div>
+        <div className="divide-y divide-slate-100">{view === "offline" ? <p className="p-5 text-sm text-amber-800">AI belum tersedia. Daftar indikasi akan terisi lagi setelah layanan tersambung.</p> : feed.map(([title, who, time, ai]) => <button key={title + who} onClick={() => go(ai ? "detail" : "monitor")} className="flex w-full items-start gap-3 p-4 text-left hover:bg-slate-50"><span className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-md ${ai ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600"}`}><Icon name={ai ? "bell" : "wifi"} size={16} /></span><span className="min-w-0 flex-1"><span className="block text-sm font-medium text-slate-800">{title}</span><span className="text-xs text-slate-500">{who} · {time}</span></span>{ai && <span className="mt-2 size-2 rounded-full bg-blue-600" />}</button>)}</div>
+        <div className="m-4 flex gap-3 rounded-md bg-blue-50 p-3.5 text-xs leading-5 text-blue-900"><Icon name="shield" size={17} /><p><strong className="block font-semibold">Perlu verifikasi manusia</strong>Indikasi dari AI hanya membantu peninjauan dan tidak menentukan hasil secara otomatis.</p></div>
+      </aside>
+    </div>
+    {expanded && <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 p-6"><section role="dialog" aria-modal="true" className="w-full max-w-4xl overflow-hidden rounded-lg border border-slate-700 bg-slate-900"><div className="flex items-center justify-between border-b border-white/10 p-4 text-white"><div><p className="font-semibold">{expanded}</p><p className="text-xs text-slate-400">Siaran langsung · koneksi baik</p></div><button onClick={() => setExpanded(null)} aria-label="Tutup"><Icon name="close" /></button></div><div className="relative aspect-video bg-slate-800"><Silhouette /></div><div className="flex justify-end gap-2 border-t border-white/10 p-4"><Button variant="secondary" onClick={() => { setExpanded(null); go("student-detail"); }}>Detail siswa</Button><Button onClick={() => setExpanded(null)}>Tutup</Button></div></section></div>}
   </main></AppShell>;
 }
 
@@ -560,10 +653,29 @@ function AdminDashboard({ go }: { go: (s: Screen) => void }) {
 function IndicationsPage({ go }: { go: (s: Screen) => void }) {
   const { role } = useRole();
   const readOnly = role === "Pihak Sekolah";
-  const rows = [["Farah Nabila","Wajah tidak terdeteksi","09.42.10","09.42.28","89%","BELUM DITINJAU"],["Bima Pratama","Menoleh berulang kali","09.39.04","09.39.17","76%","Valid"],["Gilang Ramadhan","Suara lain terdeteksi","09.36.51","09.37.02","71%","Perlu Tinjauan Lanjut"],["Citra Lestari","Perangkat lain terlihat","09.31.22","09.31.29","58%","Tidak Valid"]];
-  const visibleRows = readOnly ? rows.filter((row) => row[5] !== "BELUM DITINJAU") : rows;
-  return <AppShell active="indications" go={go} title="Daftar Indikasi"><main className="p-4 sm:p-8"><PageTitle title={readOnly ? "Indikasi Tervalidasi" : "Indikasi Perilaku Mencurigakan"} description={readOnly ? "Hanya hasil yang telah divalidasi ditampilkan untuk pihak sekolah." : "Tinjau keluaran AI bersama bukti sebelum memberikan validasi."} />
-    <section className="overflow-hidden rounded-md border border-slate-200 bg-white"><div className="flex flex-col gap-3 border-b border-slate-100 p-4 xl:flex-row"><div className="relative flex-1"><span className="absolute left-3 top-2.5 text-slate-400"><Icon name="search" size={17} /></span><input className="h-10 w-full rounded-md border border-slate-200 pl-9 pr-3 text-sm" placeholder="Cari nama siswa" /></div><select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-600"><option>Semua</option><option>Belum Ditinjau</option><option>Valid</option><option>Tidak Valid</option><option>Perlu Tinjauan Lanjut</option></select><select className="h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-600"><option>Semua jenis Indikasi</option></select></div><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3.5">Siswa</th><th className="px-5 py-3.5">Jenis Indikasi</th><th className="px-5 py-3.5">Mulai</th><th className="px-5 py-3.5">Selesai</th><th className="px-5 py-3.5">Confidence / Score</th><th className="px-5 py-3.5">Status validasi</th><th className="px-5 py-3.5">Aksi</th></tr></thead><tbody>{visibleRows.map((row) => <tr key={row[0]+row[2]} className={`border-t border-slate-100 ${row[5] === "BELUM DITINJAU" ? "bg-amber-50/40" : ""}`}><td className="px-5 py-4 font-semibold text-slate-800">{row[0]}</td><td className="px-5 py-4 text-slate-600">{row[1]}</td><td className="px-5 py-4 text-slate-500">{row[2]}</td><td className="px-5 py-4 text-slate-500">{row[3]}</td><td className="px-5 py-4 font-semibold text-slate-700">{row[4]}</td><td className="px-5 py-4"><Badge tone={row[5] === "Valid" ? "green" : row[5] === "BELUM DITINJAU" || row[5] === "Perlu Tinjauan Lanjut" ? "amber" : "gray"}>{row[5]}</Badge></td><td className="px-5 py-4"><button onClick={() => go("detail")} className="text-xs font-bold text-blue-700">{readOnly ? "Lihat Evidence" : "Tinjau Evidence"}</button></td></tr>)}</tbody></table></div></section>
+  const [filter, setFilter] = useState("Semua");
+  const [sel, setSel] = useState(0);
+  const rows = [["Farah Nabila", "Wajah tidak terdeteksi", "09.42.10", "09.42.28", "89%", "BELUM DITINJAU"], ["Bima Pratama", "Menoleh berulang kali", "09.39.04", "09.39.17", "76%", "Valid"], ["Gilang Ramadhan", "Suara lain terdeteksi", "09.36.51", "09.37.02", "71%", "Perlu Tinjauan Lanjut"], ["Citra Lestari", "Perangkat lain terlihat", "09.31.22", "09.31.29", "58%", "Tidak Valid"]];
+  const visible = rows.filter((r) => (!readOnly || r[5] !== "BELUM DITINJAU") && (filter === "Semua" || r[5] === filter));
+  const cur = visible[sel] ?? visible[0];
+  const count = (l: string) => rows.filter((r) => r[5] === l).length;
+  const tone = (l: string) => (l === "Valid" ? "green" : l === "BELUM DITINJAU" || l === "Perlu Tinjauan Lanjut" ? "amber" : "gray") as "green" | "amber" | "gray";
+  const summary = [["Total indikasi", rows.length], ["Belum ditinjau", count("BELUM DITINJAU")], ["Valid", count("Valid")], ["Perlu tinjauan lanjut", count("Perlu Tinjauan Lanjut")]];
+  return <AppShell active="indications" go={go} title="Daftar Indikasi"><main className="p-4 sm:p-8">
+    <PageTitle title={readOnly ? "Indikasi Tervalidasi" : "Indikasi perilaku mencurigakan"} description={readOnly ? "Hanya hasil yang telah divalidasi ditampilkan untuk pihak sekolah." : "Pilih satu baris untuk melihat ringkasan, lalu buka evidence untuk memvalidasi."} />
+    <div className="mb-5 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 xl:grid-cols-4">{summary.map(([l, n]) => <div key={l} className="bg-white px-5 py-4"><p className="text-2xl font-semibold text-slate-900">{n}</p><p className="text-xs text-slate-500">{l}</p></div>)}</div>
+    <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
+      <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="flex flex-wrap gap-2 border-b border-slate-100 p-4">{["Semua", "BELUM DITINJAU", "Valid", "Tidak Valid", "Perlu Tinjauan Lanjut"].map((f) => <button key={f} onClick={() => { setFilter(f); setSel(0); }} className={`rounded-full border px-3 py-1 text-xs font-medium ${filter === f ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>{f === "BELUM DITINJAU" ? "Belum ditinjau" : f}</button>)}</div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead><tr><th className="px-5 py-3">Siswa</th><th className="px-5 py-3">Indikasi</th><th className="px-5 py-3">Waktu</th><th className="px-5 py-3">Skor</th><th className="px-5 py-3">Status</th></tr></thead><tbody>{visible.map((r, i) => <tr key={r[0] + r[2]} onClick={() => setSel(i)} className={`cursor-pointer border-t border-slate-100 ${cur === r ? "bg-blue-50" : ""}`}><td className="px-5 py-3.5 font-semibold text-slate-800">{r[0]}</td><td className="px-5 py-3.5 text-slate-600">{r[1]}</td><td className="px-5 py-3.5 text-slate-500">{r[2]}</td><td className="px-5 py-3.5 font-medium text-slate-700">{r[4]}</td><td className="px-5 py-3.5"><Badge tone={tone(r[5])}>{r[5] === "BELUM DITINJAU" ? "Belum ditinjau" : r[5]}</Badge></td></tr>)}</tbody></table></div>
+        {visible.length === 0 && <p className="p-8 text-center text-sm text-slate-500">Tidak ada indikasi pada filter ini.</p>}
+      </section>
+      {cur && <aside className="h-fit rounded-lg border border-slate-200 bg-white p-5"><div className="flex items-center justify-between"><h2 className="font-semibold text-slate-900">{cur[0]}</h2><Badge tone={tone(cur[5])}>{cur[5] === "BELUM DITINJAU" ? "Belum ditinjau" : cur[5]}</Badge></div><p className="mt-1 text-sm text-slate-500">{cur[1]}</p>
+        <div className="relative mt-4 grid aspect-video place-items-center overflow-hidden rounded-md bg-slate-800 text-xs text-slate-300"><Silhouette /><span className="absolute bottom-2 left-2 rounded bg-slate-900/70 px-2 py-0.5">Evidence {cur[2]}</span></div>
+        <dl className="mt-4 space-y-3 text-sm">{[["Mulai", cur[2]], ["Selesai", cur[3]], ["Tingkat keyakinan", cur[4]]].map(([k, v]) => <div key={k} className="flex justify-between"><dt className="text-slate-500">{k}</dt><dd className="font-semibold text-slate-800">{v}</dd></div>)}</dl>
+        <Button className="mt-5 w-full" onClick={() => go("detail")}>{readOnly ? "Lihat evidence" : "Buka evidence dan validasi"}</Button>
+        <p className="mt-3 text-xs leading-5 text-slate-500">AI hanya memberi indikasi. Keputusan akhir ada pada pengawas.</p></aside>}
+    </div>
   </main></AppShell>;
 }
 
