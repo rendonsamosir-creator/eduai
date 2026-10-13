@@ -4,6 +4,7 @@ type Role = "Siswa" | "Pengawas" | "Penyelenggara Ujian" | "Admin" | "Pihak Seko
 type CreatedExam = { name: string; description: string; date: string; start: string; duration: string; supervisor: string; status: string; students: string[] };
 
 type Screen =
+  | "landing"
   | "login"
   | "dashboard"
   | "sessions"
@@ -140,6 +141,21 @@ const indications = [
   { name: "Citra Lestari", type: "Perangkat lain terlihat", time: "09.31.22", confidence: "Rendah" },
 ];
 
+function Landing({ go }: { go: (s: Screen) => void }) {
+  const steps: [string, string][] = [["Sebelum ujian", "Sesi dan peserta dibuat. Siswa membaca pemberitahuan, menyetujui perekaman, lalu mengecek kamera dan mikrofon."], ["Selama ujian", "Siswa mengerjakan ujian di ruang online. Sistem mencatat koneksi dan menandai momen yang perlu dicek."], ["Setelah ujian", "Pengawas meninjau bukti, memberi label valid atau tidak valid, lalu menyusun laporan sesi."]];
+  const points: [string, string][] = [["AI hanya memberi indikasi", "Sistem tidak menjatuhkan sanksi. Setiap indikasi harus ditinjau pengawas sebelum masuk laporan."], ["Bukti bisa diperiksa ulang", "Setiap indikasi dilengkapi klip atau tangkapan layar beserta waktu kejadiannya."], ["Data siswa dijaga", "Persetujuan dicatat, akses mengikuti peran, dan rekaman dihapus setelah masa simpan berakhir."]];
+  return <div className="min-h-screen bg-white text-slate-900">
+    <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95"><div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5"><Logo /><nav className="flex items-center gap-6 text-sm font-medium text-slate-600"><a href="#cara-kerja" className="hidden hover:text-slate-900 sm:block">Cara kerja</a><a href="#prinsip" className="hidden hover:text-slate-900 sm:block">Prinsip</a><Button onClick={() => go("login")}>Masuk</Button></nav></div></header>
+    <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-16 lg:grid-cols-2 lg:py-24">
+      <div><p className="text-sm font-medium text-blue-700">Sistem pendukung pengawasan ujian online</p><h1 className="mt-3 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">Membantu pengawas melihat lebih teliti, tanpa menggantikan penilaiannya.</h1><p className="mt-5 max-w-lg text-lg leading-8 text-slate-600">EduAI menandai momen yang perlu dicek selama ujian online. Pengawas meninjau buktinya dan memutuskan sendiri.</p><div className="mt-8 flex flex-wrap gap-3"><Button onClick={() => go("login")}>Masuk ke EduAI</Button><a href="#cara-kerja" className="inline-flex h-10 items-center rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50">Lihat cara kerja</a></div></div>
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4"><div className="mb-3 flex items-center justify-between text-xs"><p className="font-semibold text-slate-800">Ujian Akhir Matematika XI</p><span className="rounded-full bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700">Berlangsung</span></div><div className="grid grid-cols-2 gap-2">{[["Alya P.", "bg-blue-100"], ["Bima P.", "bg-slate-200"], ["Citra L.", "bg-amber-100"], ["Dimas S.", "bg-slate-200"]].map(([n, c], i) => <div key={n} className={`relative aspect-video overflow-hidden rounded-md ${c} ${i === 2 ? "ring-2 ring-amber-500" : ""}`}><Silhouette /><span className="absolute bottom-1.5 left-1.5 rounded bg-slate-900/60 px-1.5 py-0.5 text-[10px] text-white">{n}</span></div>)}</div><p className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">Citra Lestari · wajah tidak terlihat 12 detik · menunggu tinjauan</p></div>
+    </section>
+    <section id="cara-kerja" className="border-y border-slate-200 bg-slate-50 py-16"><div className="mx-auto max-w-6xl px-5"><h2 className="text-2xl font-semibold">Alur dalam tiga tahap</h2><div className="mt-8 grid gap-5 md:grid-cols-3">{steps.map(([t, d], i) => <div key={t} className="rounded-lg border border-slate-200 bg-white p-6"><span className="text-sm font-semibold text-blue-700">Tahap {i + 1}</span><h3 className="mt-2 text-lg font-semibold">{t}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{d}</p></div>)}</div></div></section>
+    <section id="prinsip" className="mx-auto max-w-6xl px-5 py-16"><h2 className="text-2xl font-semibold">Prinsip penggunaan</h2><div className="mt-8 grid gap-8 md:grid-cols-3">{points.map(([t, d]) => <div key={t} className="border-t-2 border-blue-700 pt-4"><h3 className="font-semibold">{t}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{d}</p></div>)}</div></section>
+    <footer className="border-t border-slate-200 py-8 text-center text-sm text-slate-500">EduAI · Proyek Capstone</footer>
+  </div>;
+}
+
 type Account = { email: string; name: string; password: string; role: Role };
 const PREFIX_ROLE: Record<string, Role> = { siswa: "Siswa", pengawas: "Pengawas", penyelenggara: "Penyelenggara Ujian", admin: "Admin", sekolah: "Pihak Sekolah" };
 const roleFromEmail = (email: string): Role | undefined => PREFIX_ROLE[email.toLowerCase().match(/^([a-z]+)\d*@[^\s@]+\.[^\s@]+$/)?.[1] ?? ""];
@@ -216,6 +232,7 @@ function Login({ go }: { go: (s: Screen) => void }) {
 
       <section className="flex items-center justify-center px-6 py-12 sm:px-12">
         <div className="w-full max-w-sm">
+          <button type="button" onClick={() => go("landing")} className="mb-8 text-sm font-medium text-slate-500 hover:text-slate-900">&larr; Kembali ke beranda</button>
           <div className="mb-10 lg:hidden"><Logo /></div>
           <h2 className="text-2xl font-semibold text-slate-900">{register ? "Buat akun EduAI" : "Masuk ke EduAI"}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">{register ? "Peran ditentukan dari awalan email, misalnya pengawas2@gmail.com." : "Gunakan email yang sudah didaftarkan sekolah."}</p>
@@ -439,14 +456,19 @@ function StudentHeader({ step }: { step?: number }) {
 
 function Consent({ go }: { go: (s: Screen) => void }) {
   const [agreed, setAgreed] = useState(false);
+  const [minor, setMinor] = useState(false);
+  const [guardian, setGuardian] = useState("");
+  const [declined, setDeclined] = useState(false);
   return <div className="min-h-screen bg-slate-50"><StudentHeader step={2} /><main className="mx-auto max-w-3xl p-5 py-10 sm:py-16">
     <div className="mb-8 flex items-center justify-center gap-2">{[1, 2].map((n) => <div key={n} className="flex items-center gap-2">{n > 1 && <div className="h-px w-12 bg-blue-200" />}<div className="grid size-8 place-items-center rounded-full bg-blue-700 text-xs font-bold text-white">{n === 1 ? <Icon name="check" size={14} /> : n}</div></div>)}</div>
     <section className="rounded-md border border-slate-200 bg-white p-6 sm:p-10">
       <div className="grid size-12 place-items-center rounded-md bg-blue-50 text-blue-700"><Icon name="shield" size={25} /></div><p className="mt-6 text-xs font-bold uppercase tracking-widest text-blue-700">Langkah 2 dari 2</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">Persetujuan Perekaman</h1><p className="mt-3 leading-7 text-slate-600">Untuk mendukung pengawasan ujian, video dan audio Anda akan direkam selama sesi berlangsung dan dianalisis oleh AI untuk memberikan Indikasi kepada pengawas.</p>
       <div className="my-7 grid gap-3 sm:grid-cols-2">{[["video","Data yang direkam","Kamera, mikrofon, dan aktivitas koneksi selama ujian."],["monitor","Analisis AI","Posisi wajah, pergerakan, suara, dan kestabilan perangkat untuk menghasilkan Indikasi."],["shield","Tujuan penggunaan","Mendukung pengawas dalam meninjau jalannya ujian secara bertanggung jawab."],["users","Akses & masa simpan","Pengawas berwenang dapat mengakses data. Rekaman disimpan maksimal 90 hari."]].map(([icon,title,copy]) => <div key={title} className="rounded-md bg-slate-50 p-4"><div className="flex items-center gap-2 font-bold text-slate-800"><Icon name={icon as IconName} size={18} />{title}</div><p className="mt-2 text-sm leading-6 text-slate-500">{copy}</p></div>)}</div>
       <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900"><strong>Perlu diketahui:</strong> AI hanya memberikan Indikasi. Setiap keputusan akhir selalu dibuat oleh pengawas setelah meninjau bukti.</div>
-      <label className="mt-7 flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 p-4 transition hover:bg-slate-50"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 size-5 rounded border-slate-300 accent-blue-600" /><span><span className="block text-sm font-bold text-slate-800">Saya telah membaca dan menyetujui pemberitahuan perekaman dan analisis data.</span><span className="mt-1 block text-xs leading-5 text-slate-500">Persetujuan diperlukan untuk mengikuti ujian ini.</span></span></label>
-      <div className="mt-7 flex justify-end"><Button disabled={!agreed} onClick={() => go("exam")}>Setuju & Masuk Ujian <Icon name="chevron" size={17} /></Button></div>
+      <div className="mt-7 rounded-md border border-slate-200 p-4"><label className="flex cursor-pointer items-center gap-3 text-sm font-semibold text-slate-800"><input type="checkbox" checked={minor} onChange={(e) => setMinor(e.target.checked)} className="size-5 accent-blue-600" />Usia saya di bawah 18 tahun</label>{minor && <div className="mt-4"><label className="block text-sm font-semibold text-slate-700">Nama orang tua/wali yang menyetujui<input value={guardian} onChange={(e) => setGuardian(e.target.value)} placeholder="Nama lengkap orang tua atau wali" className="mt-2 h-11 w-full rounded-md border border-slate-200 px-3 text-sm font-normal" /></label><p className="mt-2 text-xs leading-5 text-slate-500">Persetujuan orang tua/wali dicatat bersama waktu dan versi teks pemberitahuan ini.</p></div>}</div>
+      <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-md border border-slate-200 p-4 transition hover:bg-slate-50"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 size-5 rounded border-slate-300 accent-blue-600" /><span><span className="block text-sm font-bold text-slate-800">Saya telah membaca dan menyetujui pemberitahuan perekaman dan analisis data.</span><span className="mt-1 block text-xs leading-5 text-slate-500">Persetujuan diperlukan untuk mengikuti ujian ini.</span></span></label>
+      {declined && <p role="alert" className="mt-5 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">Tanpa persetujuan, Anda tidak dapat mengikuti ujian ini. Hubungi pengawas atau pihak sekolah.</p>}
+      <div className="mt-7 flex justify-between"><Button variant="ghost" onClick={() => setDeclined(true)}>Tolak</Button><Button disabled={!agreed || (minor && !guardian.trim())} onClick={() => go("exam")}>Setuju & Masuk Ujian <Icon name="chevron" size={17} /></Button></div>
     </section>
   </main></div>;
 }
@@ -726,7 +748,7 @@ function AccessDenied({ go }: { go: (s: Screen) => void }) {
 }
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("login");
+  const [screen, setScreen] = useState<Screen>("landing");
   const [role, setRole] = useState<Role>("Pengawas");
   const [createdExam, setCreatedExam] = useState<CreatedExam | null>(null);
   const allowed: Record<Role, Screen[]> = {
@@ -736,9 +758,10 @@ export default function App() {
     Admin: ["login","dashboard","sessions","create","exam-detail","waiting","consent","device","exam","monitor","student-detail","detail","timeline","report","indications","history","students","users","permissions","configuration","retention","audit","settings","access-denied"],
     "Pihak Sekolah": ["login","dashboard","sessions","exam-detail","detail","report","indications","history","settings","access-denied"],
   };
-  const go = (next: Screen) => { setScreen(next === "login" || allowed[role].includes(next) ? next : "access-denied"); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const go = (next: Screen) => { setScreen(next === "login" || next === "landing" || allowed[role].includes(next) ? next : "access-denied"); window.scrollTo({ top: 0, behavior: "smooth" }); };
   let page: ReactNode;
-  if (screen === "login") page = <Login go={go} />;
+  if (screen === "landing") page = <Landing go={go} />;
+  else if (screen === "login") page = <Login go={go} />;
   else if (screen === "dashboard") page = <Dashboard go={go} />;
   else if (screen === "sessions") page = <Sessions go={go} />;
   else if (screen === "create") page = <AdminCreateExam go={go} />;
